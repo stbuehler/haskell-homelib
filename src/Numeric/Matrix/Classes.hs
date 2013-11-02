@@ -21,6 +21,7 @@ module Numeric.Matrix.Classes
 	) where
 
 import Data.Tagged
+import Data.List
 import qualified Data.Array.IArray as A
 
 class Vector v e | v -> e where
@@ -38,8 +39,11 @@ class (Vector r e, Vector c e) => Matrix m r c e | m -> r, m -> c, m -> e where
 dotProduct :: (Vector v e, Num e) => v -> v -> e
 dotProduct a b = sum $ zipWith (*) (vectorToList a) (vectorToList b)
 
+map' :: (a -> b) -> [a] -> [b]
+map' f l = let l' = map f l in foldl' (flip seq) l' l'
+
 matrixProduct :: (Num e, Matrix m1 k c e, Matrix m2 r k e, Matrix m3 r c e) => m1 -> m2 -> m3
-matrixProduct a b =fromRowVectors $ map (\r -> vectorFromList $ map (dotProduct r) $ toColVectors b) $ toRowVectors a
+matrixProduct a b = fromRowVectors $ map' (\r -> vectorFromList $ map' (dotProduct r) $ toColVectors b) $ toRowVectors a
 
 matrixMultVector :: (Num e, Matrix m r c e) => m -> r -> c
 matrixMultVector a b = vectorFromList $ map (\r -> dotProduct r b) $ toRowVectors a
