@@ -1,0 +1,42 @@
+Name:                homelib
+Version:             0.0.1
+Synopsis:            home stuff
+Description:         home stuff
+License:             MIT
+License-file:        COPYING
+Copyright:           Stefan Bühler <stbuehler@web.de>
+Author:              Stefan Bühler <stbuehler@web.de>
+Maintainer:          Stefan Bühler <stbuehler@web.de>
+Category:            Misc
+Build-Type:          Simple
+Homepage:            https://github.com/stbuehler/haskell-homelibe
+Bug-reports:         https://github.com/stbuehler/haskell-homelibe/issues
+Cabal-Version:       >=1.8
+
+Library
+  hs-source-dirs:    src
+  Build-Depends:     base >= 4 && < 5
+                   , bytestring
+                   , byteable
+                   , tagged
+                   , template-haskell
+                   , arithmoi
+                   , containers
+                   , vector
+                   , array
+  Exposed-modules:   Numeric.Field
+                     Numeric.Field.Classes
+                     Numeric.Field.PrimeFields
+                     Numeric.Field.GenPrimeField
+                     Numeric.Matrix
+                     Numeric.Matrix.Classes
+                     Numeric.Matrix.GenMatrix
+                     Numeric.Matrix.DefaultMatrices
+                     Numeric.Polynomial
+                     Numeric.Primes
+                     Numeric.Ring.Classes
+                     Numeric.Ring.GenNaturalRing
+                     Numeric.Ring.NaturalRings
+                     Data.Memoize
+  Other-modules:     
+  ghc-options:       -Wall -optc-O3 -fno-cse
