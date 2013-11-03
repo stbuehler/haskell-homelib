@@ -1,3 +1,4 @@
+{-# OPTIONS -fno-warn-type-defaults #-}
 {-# LANGUAGE TemplateHaskell, FlexibleInstances #-}
 
 module Numeric.Field.GenPrimeField
@@ -11,6 +12,7 @@ import Data.Tagged
 import Data.Ord
 import Data.Ratio
 import Data.Word
+import Control.DeepSeq
 import Math.NumberTheory.Moduli
 import Language.Haskell.TH
 
@@ -91,6 +93,7 @@ definePrimeField prime = do
 		instance FiniteField $(conT tname) where
 			fieldSize = characteristic
 		instance PrimeField $(conT tname) where
+		instance NFData $(conT tname) where
 		|]
 	return $ t ++ i
 

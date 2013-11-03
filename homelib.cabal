@@ -24,6 +24,7 @@ Library
                    , containers
                    , vector
                    , array
+                   , deepseq
   Exposed-modules:   Numeric.Field
                      Numeric.Field.Classes
                      Numeric.Field.PrimeFields
@@ -39,4 +40,4 @@ Library
                      Numeric.Ring.NaturalRings
                      Data.Memoize
   Other-modules:     
-  ghc-options:       -Wall -optc-O3 -fno-cse
+  ghc-options:       -Wall -optc-O3 -fno-cse -funbox-strict-fields

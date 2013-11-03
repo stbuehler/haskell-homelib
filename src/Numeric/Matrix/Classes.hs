@@ -1,12 +1,15 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, ScopedTypeVariables #-}
 
 module Numeric.Matrix.Classes
-	( Vector(..)
+	( (.*)
+	, Mult(..)
+
+	, Vector(..)
 	, Matrix(..)
-	, dotProduct
 	, matrixProduct
 	, matrixMultVector
 	, vectorMultMatrix
+	, matrixDimensions
 
 	, AnyMatrix
 	, toAnyMatrix
@@ -24,42 +27,58 @@ import Data.Tagged
 import Data.List
 import qualified Data.Array.IArray as A
 
-class Vector v e | v -> e where
-	vectorToList :: v -> [e]
-	vectorFromList :: [e] -> v
-	vectorSize :: Tagged v Int
+infixl 7 .*, ~*
 
-class (Vector r e, Vector c e) => Matrix m r c e | m -> r, m -> c, m -> e where
-	toRowVectors :: m -> [r]
-	toColVectors :: m -> [c]
-	fromRowVectors :: [r] -> m
-	fromColVectors :: [c] -> m
-	matrixDimensions :: Tagged m (Int, Int)
+(.*) :: (Num e, Functor f) => e -> f e -> f e
+s .* v = fmap (s*) v
 
-dotProduct :: (Vector v e, Num e) => v -> v -> e
-dotProduct a b = sum $ zipWith (*) (vectorToList a) (vectorToList b)
+class Mult a b c | a b -> c where
+	(~*) :: Num e => a e -> b e -> c e
 
-map' :: (a -> b) -> [a] -> [b]
-map' f l = let l' = map f l in foldl' (flip seq) l' l'
+class Functor v => Vector v where
+	vectorToList :: v e -> [e]
+	vectorFromList :: [e] -> v e
+	vectorSize :: Tagged (v e) Int
+	dotProduct :: Num e => v e -> v e -> e
+	{-# INLINE dotProduct #-}
+	dotProduct a b  = sum $ zipWith (*) (vectorToList a) (vectorToList b)
 
-matrixProduct :: (Num e, Matrix m1 k c e, Matrix m2 r k e, Matrix m3 r c e) => m1 -> m2 -> m3
-matrixProduct a b = fromRowVectors $ map' (\r -> vectorFromList $ map' (dotProduct r) $ toColVectors b) $ toRowVectors a
+{-# INLINE vectorTranspose #-}
+vectorTranspose :: (Vector a, Vector b) => a (b e) -> b (a e)
+vectorTranspose = vectorFromList . map vectorFromList . transpose . map vectorToList . vectorToList
 
-matrixMultVector :: (Num e, Matrix m r c e) => m -> r -> c
-matrixMultVector a b = vectorFromList $ map (\r -> dotProduct r b) $ toRowVectors a
-vectorMultMatrix :: (Num e, Matrix m r c e) => c -> m -> r
-vectorMultMatrix a b = vectorFromList $ map (\c -> dotProduct a c) $ toColVectors b
+class (Functor m, Vector r, Vector c) => Matrix m r c | m -> r, m -> c where
+	matrixToRows :: m e -> c (r e)
+	matrixToCols :: m e -> r (c e)
+	matrixToCols = vectorTranspose . matrixToRows
+	matrixFromRows :: c (r e) -> m e
+	matrixFromCols :: r (c e) -> m e
+	matrixFromCols = matrixFromRows . vectorTranspose
+
+matrixDimensions :: forall m r c e . Matrix m r c => Tagged (m e) (Int, Int)
+matrixDimensions = Tagged (untag (vectorSize :: Tagged (c e) Int), untag (vectorSize :: Tagged (r e) Int))
+
+{-# INLINE matrixProduct #-}
+matrixProduct :: (Num e, Matrix m1 k c, Matrix m2 r k, Matrix m3 r c) => m1 e -> m2 e -> m3 e
+matrixProduct a b = matrixFromRows $ fmap (\r -> fmap (dotProduct r) $ matrixToCols b) $ matrixToRows a
+
+{-# INLINE matrixMultVector #-}
+matrixMultVector :: (Num e, Matrix m r c) => m e -> r e -> c e
+matrixMultVector a b = fmap (\r -> dotProduct r b) $ matrixToRows a
+{-# INLINE vectorMultMatrix #-}
+vectorMultMatrix :: (Num e, Matrix m r c) => c e -> m e -> r e
+vectorMultMatrix a b = fmap (\c -> dotProduct a c) $ matrixToCols b
 
 data AnyMatrix e = AnyScalar !e | AnyMatrix !(A.Array (Int, Int) e)
 instance Functor AnyMatrix where
 	fmap f (AnyScalar a) = AnyScalar $ f a
 	fmap f (AnyMatrix a) = AnyMatrix $ fmap f a
 
-toAnyMatrix :: (Matrix m r c e) => m -> AnyMatrix e
-toAnyMatrix m = anyMatrixFromRowList' (matrixDimensions `witness` m) $ map vectorToList $ toRowVectors m
-rowToAnyMatrix :: (Vector r e) => r -> AnyMatrix e
+toAnyMatrix :: (Matrix m r c) => m e -> AnyMatrix e
+toAnyMatrix m = anyMatrixFromRowList' (matrixDimensions `witness` m) $ map vectorToList $ vectorToList $ matrixToRows m
+rowToAnyMatrix :: (Vector r) => r e -> AnyMatrix e
 rowToAnyMatrix r = anyMatrixFromRowList' (1, vectorSize `witness` r) [vectorToList r]
-colToAnyMatrix :: (Vector c e) => c -> AnyMatrix e
+colToAnyMatrix :: (Vector c) => c e -> AnyMatrix e
 colToAnyMatrix c = anyMatrixFromRowList' (vectorSize `witness` c, 1) $ map (\x -> [x]) $ vectorToList c
 
 _dim :: A.Array (Int, Int) e -> (Int, Int)

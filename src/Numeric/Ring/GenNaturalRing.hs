@@ -12,6 +12,7 @@ import Data.Tagged
 import Data.Ord
 import Data.Word
 import Math.NumberTheory.Moduli
+import Control.DeepSeq
 import Language.Haskell.TH
 
 class InternalNaturalRing n where
@@ -90,6 +91,7 @@ defineNaturalRing base = do
 			ringRecip = inrRecip
 		instance FiniteRing $(conT tname) where
 			ringSize = witness inrSize
+		instance NFData $(conT tname) where
 		|]
 	return $ t ++ i
 
