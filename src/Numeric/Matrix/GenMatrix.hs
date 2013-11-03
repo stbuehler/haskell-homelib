@@ -14,19 +14,20 @@ import Language.Haskell.TH
 import Data.Tagged
 import Data.List
 import Data.Data
+import qualified Data.Foldable as F
+import Data.Traversable (Traversable, traverse)
+import Control.Applicative (Applicative, (<*>), (<$>), pure)
 import Control.DeepSeq
 
 -- import Debug.Trace
 
 manyDecs :: [Q [Dec]] -> Q [Dec]
-manyDecs = fmap concat . sequence
+manyDecs d = concat <$> sequence d
 
 vectorName :: Int -> Name
 vectorName n = mkName $ "Vector" ++ show n
 vectorname :: Int -> Name
 vectorname n = mkName $ "vector" ++ show n
-
--- TODO: Foldable, Traversable, Applicative
 
 defineVector :: Int -> Q [Dec]
 defineVector n = do
@@ -47,8 +48,19 @@ defineVector n = do
 		, funD 'dotProduct [clause [conP name $ map varP $ gennames "a", conP name $ map varP $ gennames "b"]
 			(normalB $ foldl1 (appE . appE (varE '(+))) $ zipWith (\a b -> foldl appE (varE '(*)) [varE a, varE b]) (gennames "a") (gennames "b")) [] ]
 		]
+	foldableinst <- instanceD (cxt []) (appT (conT ''F.Foldable) $ conT name)
+		[ funD 'foldr [clause [varP $ mkName "f", varP $ mkName "z", conP name $ map varP enames] (normalB $ foldl appE (varE 'foldr) [varE $ mkName "f", varE $ mkName "z", listE $ map varE enames] ) []]
+		]
 	functorinst <- instanceD (cxt []) (appT (conT ''Functor) $ conT name)
-		[ funD 'fmap [clause [varP (mkName "f"), conP name $ map varP enames] (normalB $ foldl appE (conE name) $ map (appE (varE $ mkName "f") . varE) enames) [] ]
+		[ funD 'fmap [clause [varP $ mkName "f", conP name $ map varP enames] (normalB $ foldl appE (conE name) $ map (appE (varE $ mkName "f") . varE) enames) [] ]
+		]
+	applicativeinst <- instanceD (cxt []) (appT (conT ''Applicative) $ conT name)
+		[ funD 'pure [clause [varP e] (normalB $ foldl appE (conE name) $ replicate n $ varE e) [] ]
+		, funD '(<*>) [clause [conP name $ map varP $ gennames "f", conP name $ map varP enames]
+			(normalB $ foldl appE (conE name) $ zipWith (\f x -> appE (varE f) $ varE x) (gennames "f") enames) [] ]
+		]
+	traversableinst <- instanceD (cxt []) (appT (conT ''Traversable) $ conT name)
+		[ funD 'traverse [clause [varP $ mkName "f", conP name $ map varP enames] (normalB $ foldl (\x y -> appE (appE (varE '(<*>)) x) $ appE (varE $ mkName "f") (varE y)) (appE (varE 'pure) (conE name)) enames) []]
 		]
 	nfdatainst <- instanceD (cxt [classP ''NFData [et]]) (appT (conT ''NFData) $ appT (conT name) et)
 		[ funD 'rnf [clause [conP name $ map varP enames] (normalB $ foldr (appE . appE (varE 'deepseq)) [e|()|] $ map varE enames) []]
@@ -59,7 +71,7 @@ defineVector n = do
 	sigconstr <- sigD (vectorname n) $ forallT [PlainTV e] (cxt []) $ foldl appT arrowT [foldl appT (tupleT n) $ replicate n et, appT (conT name) et]
 	constr <- funD (vectorname n) [clause [tupP $ map varP enames] (normalB $ foldl appE (conE name) $ map varE enames) []]
 	-- trace (pprint inst) $
-	return $ [nt,inst,functorinst,nfdatainst,showinst,sigconstr,constr]
+	return $ [nt,inst,foldableinst,functorinst,applicativeinst,traversableinst,nfdatainst,showinst,sigconstr,constr]
 
 matrixName :: Int -> Int -> Name
 matrixName m n = mkName $ "Matrix" ++ show m ++ "x" ++ show n
@@ -89,8 +101,17 @@ defineMatrix m n = do
 		, funD 'matrixToCols [clause [patall enames] (normalB $ foldl appE (conE $ vectorName n) $ map (foldl appE (conE $ vectorName m) . map varE) $ transpose enames) []]
 		, funD 'matrixFromCols [ clause [conP (vectorName n) $ map (conP (vectorName m) . map varP) $ transpose enames] (normalB $ expall $ map (map varE) enames) [] ]
 		]
+	foldableinst <- instanceD (cxt []) (appT (conT ''F.Foldable) $ conT name)
+		[ funD 'foldr [clause [] (normalB [e|\f z v -> F.foldr (\r z' -> F.foldr f z' r) z $ matrixToRows v |]) [] ] ]
 	functorinst <- instanceD (cxt []) (appT (conT ''Functor) $ conT name)
-		[ funD 'fmap [clause [varP (mkName "f"), conP name [varP $ mkName "m"]] (normalB $ appE (conE name) $ foldl appE (varE 'fmap) [appE (varE 'fmap) $ varE $ mkName "f", varE $ mkName "m"]) [] ]
+		[ funD 'fmap [clause [varP $ mkName "f", conP name [varP $ mkName "m"]] (normalB $ appE (conE name) $ foldl appE (varE 'fmap) [appE (varE 'fmap) $ varE $ mkName "f", varE $ mkName "m"]) [] ]
+		]
+	applicativeinst <- instanceD (cxt []) (appT (conT ''Applicative) $ conT name)
+		[ funD 'pure [clause [] (normalB [e| $(conE name) . pure . pure |]) [] ]
+		, funD '(<*>) [clause [] (normalB [e|\a b -> $(conE name) $ fmap (<*>) (matrixToRows a) <*> (matrixToRows b) |]) [] ]
+		]
+	traversableinst <- instanceD (cxt []) (appT (conT ''Traversable) $ conT name)
+		[ funD 'traverse [clause [] (normalB [e|\f -> fmap matrixFromRows . traverse (traverse f) . matrixToRows |]) []]
 		]
 	numinst <- instanceD (cxt [classP ''Num [et]]) (appT (conT ''Num) $ appT (conT name) et)
 		[ funD '(+) [ clause [patall anames, patall bnames]
@@ -122,7 +143,7 @@ defineMatrix m n = do
 	sigconstr <- sigD (matrixname m n) $ forallT [PlainTV e] (cxt []) $ foldl appT arrowT [foldl appT (tupleT m) $ replicate m (foldl appT (tupleT n) $ replicate n et), appT (conT name) et]
 	constr <- funD (matrixname m n) [clause [tupP $ map varP rownames] (normalB $ appE (conE name) $ foldl appE (conE $ vectorName m) $ map (appE (varE $ vectorname n) . varE) rownames) []]
 --	trace (pprint nt) $
-	return $ [nt,inst,functorinst,numinst,nfdatainst,showinst,multinst1,multinst2,sigconstr,constr] ++ multinst3
+	return $ [nt,inst,foldableinst,functorinst,applicativeinst,traversableinst,numinst,nfdatainst,showinst,multinst1,multinst2,sigconstr,constr] ++ multinst3
 
 {-
 instance Mult MatrixMxK MatrixKxN MatrixMxN where ~* = matrixProduct

@@ -6,6 +6,10 @@ module Numeric.Matrix.Classes
 
 	, Vector(..)
 	, Matrix(..)
+
+	, vectorTranspose
+	, matrixTranspose
+
 	, matrixProduct
 	, matrixMultVector
 	, vectorMultMatrix
@@ -26,6 +30,10 @@ module Numeric.Matrix.Classes
 import Data.Tagged
 import Data.List
 import qualified Data.Array.IArray as A
+import qualified Data.Foldable as F
+import Data.Traversable (Traversable(..))
+import Control.Applicative (Applicative(..), liftA2)
+
 
 infixl 7 .*, ~*
 
@@ -35,19 +43,22 @@ s .* v = fmap (s*) v
 class Mult a b c | a b -> c where
 	(~*) :: Num e => a e -> b e -> c e
 
-class Functor v => Vector v where
+class (Functor v, F.Foldable v, Traversable v, Applicative v) => Vector v where
 	vectorToList :: v e -> [e]
 	vectorFromList :: [e] -> v e
 	vectorSize :: Tagged (v e) Int
 	dotProduct :: Num e => v e -> v e -> e
 	{-# INLINE dotProduct #-}
-	dotProduct a b  = sum $ zipWith (*) (vectorToList a) (vectorToList b)
+	dotProduct a b  = F.foldl' (+) 0 $ liftA2 (*) a b
 
 {-# INLINE vectorTranspose #-}
 vectorTranspose :: (Vector a, Vector b) => a (b e) -> b (a e)
 vectorTranspose = vectorFromList . map vectorFromList . transpose . map vectorToList . vectorToList
 
-class (Functor m, Vector r, Vector c) => Matrix m r c | m -> r, m -> c where
+matrixTranspose :: (Matrix m r c, Matrix m' c r) => m e -> m' e
+matrixTranspose = matrixFromRows . matrixToCols
+
+class (Functor m, F.Foldable m, Traversable m, Applicative m, Vector r, Vector c) => Matrix m r c | m -> r, m -> c where
 	matrixToRows :: m e -> c (r e)
 	matrixToCols :: m e -> r (c e)
 	matrixToCols = vectorTranspose . matrixToRows
