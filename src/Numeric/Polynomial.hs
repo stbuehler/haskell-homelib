@@ -14,6 +14,7 @@ module Numeric.Polynomial
 	, polynomial
 	, polynomial1
 	, polynomialX
+	, toPolynomial
 	, polynomialDerive
 	, polynomialSFF
 	, polynomialDFF
@@ -137,6 +138,8 @@ polynomial1 = polynomial . flip zip (repeat 1)
 polynomialX :: (Num n, Eq n) => Polynomial n
 polynomialX = polynomial [(1,1)]
 
+toPolynomial :: (Num n, Eq n) => n -> Polynomial n
+toPolynomial v = polynomial [(0, v)]
 
 polynomialDerive :: (Num n, Eq n) => Polynomial n -> Polynomial n
 polynomialDerive = polynomial . map (\(e, n) -> if e == 0 then (0,0) else (e - 1, fromIntegral e * n)) . polynomialEntries
