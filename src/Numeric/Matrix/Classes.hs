@@ -15,6 +15,15 @@ module Numeric.Matrix.Classes
 	, vectorMultMatrix
 	, matrixDimensions
 
+	, nullV
+	, normSquare
+	, norm
+	, normSnap
+	, normalize
+	, isNormalized
+
+	, matrixEpsilon
+
 	, AnyMatrix
 	, toAnyMatrix
 	, rowToAnyMatrix
@@ -25,6 +34,8 @@ module Numeric.Matrix.Classes
 	, anyMatrixFromRowList'
 	, anyMatrixRowList
 	, anyMatrixSizedFromScalar
+	, anyMatrixDet
+	, matrixDet
 	) where
 
 import Data.Tagged
@@ -37,6 +48,12 @@ import Control.Applicative (Applicative(..), liftA2)
 
 infixl 7 .*, ~*
 
+{-# INLINE matrixEpsilon #-}
+matrixEpsilon :: Floating t => t
+matrixEpsilon = 0.000001
+
+
+{-# INLINE (.*) #-}
 (.*) :: (Num e, Functor f) => e -> f e -> f e
 s .* v = fmap (s*) v
 
@@ -51,23 +68,25 @@ class (Functor v, F.Foldable v, Traversable v, Applicative v) => Vector v where
 	{-# INLINE dotProduct #-}
 	dotProduct a b  = F.foldl' (+) 0 $ liftA2 (*) a b
 
+class (Functor m, F.Foldable m, Traversable m, Applicative m, Vector r, Vector c) => Matrix m r c | m -> r, m -> c where
+	matrixToRows :: m e -> c (r e)
+	matrixToCols :: m e -> r (c e)
+	{-# INLINE matrixToCols #-}
+	matrixToCols = vectorTranspose . matrixToRows
+	matrixFromRows :: c (r e) -> m e
+	matrixFromCols :: r (c e) -> m e
+	{-# INLINE matrixFromCols #-}
+	matrixFromCols = matrixFromRows . vectorTranspose
+
+matrixDimensions :: forall m r c e . Matrix m r c => Tagged (m e) (Int, Int)
+matrixDimensions = Tagged (untag (vectorSize :: Tagged (c e) Int), untag (vectorSize :: Tagged (r e) Int))
+
 {-# INLINE vectorTranspose #-}
 vectorTranspose :: (Vector a, Vector b) => a (b e) -> b (a e)
 vectorTranspose = vectorFromList . map vectorFromList . transpose . map vectorToList . vectorToList
 
 matrixTranspose :: (Matrix m r c, Matrix m' c r) => m e -> m' e
 matrixTranspose = matrixFromRows . matrixToCols
-
-class (Functor m, F.Foldable m, Traversable m, Applicative m, Vector r, Vector c) => Matrix m r c | m -> r, m -> c where
-	matrixToRows :: m e -> c (r e)
-	matrixToCols :: m e -> r (c e)
-	matrixToCols = vectorTranspose . matrixToRows
-	matrixFromRows :: c (r e) -> m e
-	matrixFromCols :: r (c e) -> m e
-	matrixFromCols = matrixFromRows . vectorTranspose
-
-matrixDimensions :: forall m r c e . Matrix m r c => Tagged (m e) (Int, Int)
-matrixDimensions = Tagged (untag (vectorSize :: Tagged (c e) Int), untag (vectorSize :: Tagged (r e) Int))
 
 {-# INLINE matrixProduct #-}
 matrixProduct :: (Num e, Matrix m1 k c, Matrix m2 r k, Matrix m3 r c) => m1 e -> m2 e -> m3 e
@@ -79,6 +98,33 @@ matrixMultVector a b = fmap (\r -> dotProduct r b) $ matrixToRows a
 {-# INLINE vectorMultMatrix #-}
 vectorMultMatrix :: (Num e, Matrix m r c) => c e -> m e -> r e
 vectorMultMatrix a b = fmap (\c -> dotProduct a c) $ matrixToCols b
+
+{-# INLINE nullV #-}
+nullV :: (Num t, Applicative v) => v t
+nullV = pure 0
+
+{-# INLINE normSquare #-}
+normSquare :: (Vector v, Num e) => v e -> e
+normSquare v = dotProduct v v
+
+{-# INLINE norm #-}
+norm :: (Vector v, Floating e) => v e -> e
+norm = sqrt . normSquare
+
+{-# INLINE normSnap #-}
+-- snap norm to 1 if close enough
+normSnap :: (Floating e, Ord e, Vector v) => v e -> e
+normSnap v = let n2 = normSquare v in if abs (n2 - 1) < (matrixEpsilon*matrixEpsilon) then 1 else sqrt n2
+
+{-# INLINE normalize #-}
+normalize :: (Floating e, Ord e, Vector v) => v e -> v e
+normalize v = let n = normSnap v in if n < matrixEpsilon then nullV else (1/n) .* v
+
+{-# INLINE isNormalized #-}
+isNormalized :: (Floating e, Ord e, Vector v) => v e -> Bool
+isNormalized = (1 == ) . normSnap
+
+
 
 data AnyMatrix e = AnyScalar !e | AnyMatrix !(A.Array (Int, Int) e)
 instance Functor AnyMatrix where
@@ -154,3 +200,17 @@ _anyMatrixShow (AnyMatrix a) = concat rows where
 
 instance Show e => Show (AnyMatrix e) where
 	show = _anyMatrixShow
+
+
+anyMatrixDet :: Num e => AnyMatrix e -> e
+anyMatrixDet (AnyScalar s) = s
+anyMatrixDet (AnyMatrix a) = if m == 1 && n == 1 then a A.! (1,1) else if n /= m then error "invalid argument" else d
+	where
+	(m, n) = _dim a
+	a' = filter (\((_, j), _) -> j /= n) $ A.assocs a
+	suba k = AnyMatrix $ A.array ((1,1),(m-1,n-1)) $ map (\((i, j), e) -> ((if i > k then i - 1 else i, j), e)) $ filter (\((i, _), _) -> i /= k) $ a'
+	subdet k = (-1)^(k+n) * (a A.! (k, n)) * anyMatrixDet (suba k)
+	d = sum $ map subdet [1..m]
+
+matrixDet :: (Matrix m r c, Num e) => m e -> e
+matrixDet = anyMatrixDet . toAnyMatrix
