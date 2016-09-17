@@ -75,7 +75,7 @@ defineVector n = do
 		[ funD 'traverse [clause [varP $ mkName "f", conP name $ map varP enames] (normalB $ foldl (\x y -> appE (appE (varE '(<*>)) x) $ appE (varE $ mkName "f") (varE y)) (appE (varE 'pure) (conE name)) enames) []]
 		, _simpleInline 'traverse
 		]
-	numinst <- instanceD (cxt [classP ''Num [et]]) (appT (conT ''Num) $ appT (conT name) et)
+	numinst <- instanceD (cxt [appT (conT ''Num) et]) (appT (conT ''Num) $ appT (conT name) et)
 		[ funD '(+) [ clause [conP name $ map varP anames, conP name $ map varP bnames]
 			(normalB $ foldl appE (conE name) $ map (\(a, b) -> foldl appE (varE '(+)) [varE a, varE b]) abnames) [] ]
 		, _simpleInline '(+)
@@ -95,11 +95,11 @@ defineVector n = do
 			[valD (varP e) (normalB $ appE (varE 'fromInteger) (varE $ mkName "e'")) []] ]
 		, _simpleInline 'fromInteger
 		]
-	nfdatainst <- instanceD (cxt [classP ''NFData [et]]) (appT (conT ''NFData) $ appT (conT name) et)
+	nfdatainst <- instanceD (cxt [appT (conT ''NFData) et]) (appT (conT ''NFData) $ appT (conT name) et)
 		[ funD 'rnf [clause [conP name $ map varP enames] (normalB $ foldr (appE . appE (varE 'deepseq)) [e|()|] $ map varE enames) []]
 		, _simpleInline 'rnf
 		]
-	showinst <- instanceD (cxt [classP ''Show [et]]) (appT (conT ''Show) $ appT (conT name) et)
+	showinst <- instanceD (cxt [appT (conT ''Show) et]) (appT (conT ''Show) $ appT (conT name) et)
 		[ funD 'show [clause [] (normalB $ [e|show . rowToAnyMatrix|]) []]
 		, _simpleInline 'show
 		]
@@ -159,7 +159,7 @@ defineMatrix m n = do
 		[ funD 'traverse [clause [] (normalB [e|\f -> fmap matrixFromRows . traverse (traverse f) . matrixToRows |]) []]
 		, _simpleInline 'traverse
 		]
-	numinst <- instanceD (cxt [classP ''Num [et]]) (appT (conT ''Num) $ appT (conT name) et)
+	numinst <- instanceD (cxt [appT (conT ''Num) et]) (appT (conT ''Num) $ appT (conT name) et)
 		[ funD '(+) [ clause [patall anames, patall bnames]
 			(normalB $ expall $ map (map (\(a, b) -> foldl appE (varE '(+)) [varE a, varE b])) abnames) [] ]
 		, _simpleInline '(+)
@@ -180,11 +180,11 @@ defineMatrix m n = do
 			[valD (varP e) (normalB $ appE (varE 'fromInteger) (varE $ mkName "e'")) []] ]
 		, _simpleInline 'fromInteger
 		]
-	nfdatainst <- instanceD (cxt [classP ''NFData [et]]) (appT (conT ''NFData) $ appT (conT name) et)
+	nfdatainst <- instanceD (cxt [appT (conT ''NFData) et]) (appT (conT ''NFData) $ appT (conT name) et)
 		[ funD 'rnf [clause [conP name [varP $ mkName "m"]] (normalB $ appE (varE 'rnf) $ varE $ mkName "m") []]
 		, _simpleInline 'rnf
 		]
-	showinst <- instanceD (cxt [classP ''Show [et]]) (appT (conT ''Show) $ appT (conT name) et)
+	showinst <- instanceD (cxt [appT (conT ''Show) et]) (appT (conT ''Show) $ appT (conT name) et)
 		[ funD 'show [clause [] (normalB $ [e|show . toAnyMatrix|]) []]
 		, _simpleInline 'show
 		]
