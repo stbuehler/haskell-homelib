@@ -42,8 +42,7 @@ import Data.Tagged
 import Data.List
 import qualified Data.Array.IArray as A
 import qualified Data.Foldable as F
-import Data.Traversable (Traversable(..))
-import Control.Applicative (Applicative(..), liftA2)
+import Control.Applicative (liftA2)
 
 
 infixl 7 .*, ~*

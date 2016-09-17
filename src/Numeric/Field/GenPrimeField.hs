@@ -11,7 +11,6 @@ import Numeric.Field.Classes
 import Data.Tagged
 import Data.Ord
 import Data.Ratio
-import Data.Word
 import Control.DeepSeq
 import Math.NumberTheory.Moduli
 import Language.Haskell.TH
@@ -94,6 +93,7 @@ definePrimeField prime = do
 			fieldSize = characteristic
 		instance PrimeField $(conT tname) where
 		instance NFData $(conT tname) where
+			rnf x = seq x ()
 		|]
 	return $ t ++ i
 

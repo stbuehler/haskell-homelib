@@ -40,4 +40,4 @@ Library
                      Numeric.Ring.NaturalRings
                      Data.Memoize
   Other-modules:     
-  ghc-options:       -Wall -optc-O3 -fno-cse -funbox-strict-fields
+  ghc-options:       -Wall -optc-O3 -fno-cse -funbox-strict-fields -fno-warn-tabs

@@ -21,10 +21,19 @@ module Numeric.Ring.NaturalRings
 	, NaturalRing18
 	, NaturalRing19
 	, NaturalRing20
+
+	, NaturalRing100
+	, NaturalRing1000
+	, NaturalRing10000
+	, NaturalRing100000
+	, NaturalRing1000000
+	, NaturalRing10000000
+	, NaturalRing100000000
 	, NaturalRing1000000000
+	, NaturalRing10000000000
 	) where
 
 import Numeric.Ring.GenNaturalRing
 
 defineNaturalRings [1..20]
-defineNaturalRing (10^(9::Int))
+defineNaturalRings $ map (10^) [2..10::Int]

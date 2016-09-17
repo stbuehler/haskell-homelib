@@ -112,10 +112,10 @@ polynomialIntegralGCD a b = polynomialMult c $ polynomialReduction c' where
 polynomialMult :: (Num n, Eq n) => n -> Polynomial n -> Polynomial n
 polynomialMult c p = polynomial $ map (\(e, n) -> (e, c*n)) $ polynomialEntries p
 
-polynomialLeading :: (Num n) => Polynomial n => n
+polynomialLeading :: (Num n) => Polynomial n -> n
 polynomialLeading (Polynomial a) = if V.null a then 0 else snd $ V.head a
 
-polynomialDegree :: Polynomial n => Word
+polynomialDegree :: Polynomial n -> Word
 polynomialDegree (Polynomial a) = if V.null a then 0 else fst $ V.head a
 
 polynomialEntries :: (Num n, Eq n) => Polynomial n -> [(Word, n)]

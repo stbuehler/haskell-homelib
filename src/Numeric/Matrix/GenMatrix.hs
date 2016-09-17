@@ -15,8 +15,6 @@ import Data.Tagged
 import Data.List
 import Data.Data
 import qualified Data.Foldable as F
-import Data.Traversable (Traversable, traverse)
-import Control.Applicative (Applicative, (<*>), (<$>), pure)
 import Control.DeepSeq
 
 -- import Debug.Trace
